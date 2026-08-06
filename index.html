@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daybreath - Control de Cigarrillos</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --text-main: #f0f6fc;
+            --text-sub: #8b949e;
+            --accent-blue: #79c0ff;
+            --accent-green: #56d364;
+            --accent-alert: #ffa657;
+            --alert-bg: #211b18;
+            --alert-border: #422a1d;
+            --red-smoked: #f85149;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 440px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 8px;
+        }
+
+        h1 { font-size: 22px; margin: 0; font-weight: 700; color: var(--text-main); }
+
+        .status-badge {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            background-color: rgba(255, 255, 255, 0.08);
+            color: var(--text-sub);
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-header {
+            font-size: 12px;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .timer-display {
+            font-size: 34px;
+            font-weight: 800;
+            color: var(--accent-blue);
+            margin: 6px 0;
+        }
+
+        .streak-row {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 13px;
+        }
+
+        /* --- Calendario --- */
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .calendar-header button {
+            background: transparent;
+            border: 1px solid var(--text-sub);
+            color: var(--text-main);
+            border-radius: 6px;
+            cursor: pointer;
+            padding: 4px 10px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            text-align: center;
+        }
+
+        .day-name {
+            font-size: 11px;
+            color: var(--text-sub);
+            font-weight: bold;
+        }
+
+        .day-cell {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .day-cell.empty { background: transparent; cursor: default; }
+        .day-cell.today { border: 1px solid var(--accent-blue); }
+
+        /* Estados del calendario */
+        .day-cell.smoke-free {
+            background-color: rgba(121, 192, 255, 0.2);
+            color: var(--accent-blue);
+            font-weight: bold;
+        }
+
+        .day-cell.smoked {
+            background-color: rgba(248, 81, 73, 0.2);
+            color: var(--red-smoked);
+            text-decoration: line-through;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: space-around;
+            font-size: 11px;
+            color: var(--text-sub);
+            margin-top: 12px;
+        }
+
+        .legend-item { display: flex; align-items: center; gap: 4px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+        /* --- Barra de Progreso y Métricas --- */
+        .progress-bar-bg {
+            background-color: rgba(255, 255, 255, 0.1);
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-bar-fill {
+            background-color: var(--accent-blue);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .metric-title { font-size: 13px; color: var(--text-sub); }
+        .metric-value { font-size: 24px; font-weight: bold; color: var(--accent-blue); margin-top: 2px; }
+        .divider { border-top: 1px solid rgba(255, 255, 255, 0.08); margin: 12px 0; }
+
+        /* --- Crisis & Cartas --- */
+        .crisis-card {
+            background-color: var(--alert-bg);
+            border: 1px solid var(--alert-border);
+            border-radius: 16px;
+            padding: 18px;
+        }
+
+        .crisis-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--accent-alert);
+            margin-bottom: 4px;
+        }
+
+        textarea {
+            width: 100%;
+            background: #0d1117;
+            border: 1px solid var(--alert-border);
+            color: var(--text-main);
+            border-radius: 8px;
+            padding: 8px;
+            box-sizing: border-box;
+            margin-top: 8px;
+            resize: vertical;
+        }
+
+        button.action-btn {
+            background: var(--alert-border);
+            border: none;
+            color: var(--accent-alert);
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 8px;
+            width: 100%;
+        }
+
+        button.reset-btn {
+            background: transparent;
+            border: 1px solid rgba(248, 81, 73, 0.4);
+            color: var(--red-smoked);
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 12px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Daybreath</h1>
+        <span id="status" class="status-badge">Cargando...</span>
+    </header>
+
+    <!-- CARD 1: CONTADOR PRINCIPAL Y RACHA -->
+    <div class="card">
+        <div class="card-header">• Registro</div>
+        <div style="color: var(--text-sub);">Libre de humo</div>
+        <div class="timer-display" id="timer">0h 0m 0s</div>
+        
+        <div class="streak-row">
+            <div>Total: <b id="total-days">0 días</b></div>
+            <div>Racha más larga: <b id="longest-streak">0 días</b></div>
+            <div>Racha actual: <b id="current-streak">0 días</b></div>
+        </div>
+    </div>
+
+    <!-- CARD 2: SIGUIENTE META Y VIAJE DE RECUPERACIÓN -->
+    <div class="card">
+        <div class="card-header" id="stage-count">• Viaje de recuperación · 0 / 12 etapas</div>
+        <div id="stage-desc" style="font-size: 14px; line-height: 1.4;">
+            20 min — Tu pulso y presión arterial comienzan a regresar a un rango normal.
+        </div>
+        
+        <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progress-bar"></div>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-sub);">
+            <span id="time-left">Tiempo restante: 00:20:00</span>
+            <span id="progress-percent">0.00%</span>
+        </div>
+    </div>
+
+    <!-- CARD 3: CALENDARIO -->
+    <div class="card">
+        <div class="card-header">• Calendario (Tacha los días sin fumar)</div>
+        <div class="calendar-header">
+            <button onclick="cambiarMes(-1)">&lt;</button>
+            <strong id="month-label"></strong>
+            <button onclick="cambiarMes(1)">&gt;</button>
+        </div>
+        <div class="calendar-grid" id="calendar-grid"></div>
+        
+        <div class="legend">
+            <div class="legend-item"><div class="dot" style="background: var(--accent-blue);"></div> Azul: Libre de humo</div>
+            <div class="legend-item"><div class="dot" style="background: var(--red-smoked);"></div> Rojo: Fumé</div>
+        </div>
+    </div>
+
+    <!-- CARD 4: RECUPERADO -->
+    <div class="card">
+        <div class="card-header">• Recuperado (Reclaimed)</div>
+        <div class="metric-title">Dinero ahorrado</div>
+        <div class="metric-value" id="money-saved">$0.00</div>
+        
+        <div class="divider"></div>
+        
+        <div class="metric-title">Tiempo de vida ganado (Lifespan)</div>
+        <div class="metric-value" style="color: white;" id="life-saved">0h 0.0000m</div>
+        <div style="font-size: 11px; color: var(--text-sub); margin-top: 4px;">+11 minutos por cada cigarrillo que evites.</div>
+    </div>
+
+    <!-- CARD 5: CRISIS -->
+    <div class="crisis-card">
+        <div class="crisis-title">Quiero fumar justo ahora</div>
+        <div style="font-size: 12px; color: var(--text-sub);">Escribe una carta ahora para que te sostenga cuando vaciles.</div>
+        
+        <textarea id="crisis-letter" rows="3" placeholder="Escribe aquí tu carta a tu 'yo en crisis'..."></textarea>
+        <button class="action-btn" onclick="guardarCarta()">Guardar carta de apoyo</button>
+        
+        <button class="reset-btn" onclick="registrarRecaida()">Fumé / Registrar recaída</button>
+    </div>
+</div>
+
+<!-- SDKs de Firebase -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBEw5HgTSiSu0JZfQ-zGsRY3mZKrqRUec8",
+        authDomain: "controlcigarrillos-9c3d6.firebaseapp.com",
+        databaseURL: "https://controlcigarrillos-9c3d6-default-rtdb.firebaseio.com",
+        projectId: "controlcigarrillos-9c3d6",
+        storageBucket: "controlcigarrillos-9c3d6.firebasestorage.app",
+        messagingSenderId: "930123161066",
+        appId: "1:930123161066:web:0fcd303131604571952693",
+        measurementId: "G-2YHZSXZ5ZC"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const userRef = ref(db, 'usuario_demo');
+
+    // AJUSTES DEL USUARIO
+    const cigsPerDay = 3;
+    const pricePerCig = 1000;
+
+    let lastSmokedDate = null;
+    let calendarDays = {}; 
+    let crisisLetterText = "";
+    let fechaActualCalendario = new Date();
+
+    const etapasSalud = [
+        { sec: 1200, desc: "20 min — Tu pulso y presión arterial comienzan a regresar a un rango normal." },
+        { sec: 28800, desc: "8 horas — Los niveles de monóxido de carbono en sangre bajan a lo normal." },
+        { sec: 86400, desc: "24 horas — Tu riesgo de ataque cardíaco comienza a disminuir." },
+        { sec: 172800, desc: "48 horas — Las terminaciones nerviosas comienzan a regenerarse y mejora el gusto/olfato." },
+        { sec: 259200, desc: "72 horas — Los bronquios se relajan y respirar se vuelve más fácil." },
+        { sec: 1209600, desc: "2 semanas — Mejora la circulación sanguínea y la función pulmonar." },
+        { sec: 7776000, desc: "3 meses — La tos y la falta de aire disminuyen significativamente." },
+        { sec: 25920000, desc: "9 meses — Los cilios pulmonares se regeneran para limpiar el moco." },
+        { sec: 31536000, desc: "1 año — El riesgo de enfermedad coronaria se reduce a la mitad." },
+        { sec: 157680000, desc: "5 años — El riesgo de accidente cerebrovascular se iguala al de un no fumador." },
+        { sec: 315360000, desc: "10 años — El riesgo de cáncer de pulmón disminuye a la mitad." },
+        { sec: 473040000, desc: "15 años — El riesgo de enfermedad cardíaca es igual al de una persona que nunca fumó." }
+    ];
+
+    // Cargar datos desde Firebase
+    onValue(userRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            calendarDays = data.calendarDays || {};
+            crisisLetterText = data.crisisLetter || "";
+            document.getElementById('crisis-letter').value = crisisLetterText;
+            document.getElementById('status').innerText = "Sincronizado";
+        }
+        calcularFechaInicioDesdeCalendario();
+        renderizarCalendario();
+        actualizarTodo();
+    });
+
+    async function guardarEnFirebase() {
+        try {
+            await set(userRef, {
+                lastSmoked: lastSmokedDate ? lastSmokedDate.toISOString() : new Date().toISOString(),
+                calendarDays: calendarDays,
+                crisisLetter: document.getElementById('crisis-letter').value
+            });
+            document.getElementById('status').innerText = "Sincronizado";
+        } catch (e) {
+            console.error("Error al guardar:", e);
+        }
+    }
+
+    // Calcula automáticamente la fecha de inicio usando el día más antiguo tachado como "Libre de humo"
+    function calcularFechaInicioDesdeCalendario() {
+        const diasAzules = Object.keys(calendarDays).filter(fecha => calendarDays[fecha] === "free").sort();
+        
+        if (diasAzules.length > 0) {
+            // Toma el primer día tachado a las 00:00:00 h
+            lastSmokedDate = new Date(diasAzules[0] + "T00:00:00");
+        } else {
+            // Si no hay días tachados, toma la hora actual por defecto
+            lastSmokedDate = new Date();
+        }
+    }
+
+    // --- ACCIONES ---
+    window.guardarCarta = function() {
+        guardarEnFirebase();
+        alert("¡Carta guardada con éxito!");
+    };
+
+    window.registrarRecaida = function() {
+        if (confirm("¿Estás seguro de registrar una recaída? Se marcará el día de hoy como fumado.")) {
+            const hoyStr = new Date().toISOString().split('T')[0];
+            calendarDays[hoyStr] = "smoked";
+            calcularFechaInicioDesdeCalendario();
+            guardarEnFirebase();
+        }
+    };
+
+    window.cambiarMes = function(delta) {
+        fechaActualCalendario.setMonth(fechaActualCalendario.getMonth() + delta);
+        renderizarCalendario();
+    };
+
+    window.toggleDia = function(fechaStr) {
+        if (!calendarDays[fechaStr]) calendarDays[fechaStr] = "free";
+        else if (calendarDays[fechaStr] === "free") calendarDays[fechaStr] = "smoked";
+        else delete calendarDays[fechaStr];
+        
+        calcularFechaInicioDesdeCalendario();
+        guardarEnFirebase();
+    };
+
+    // --- RENDERIZADO ---
+    function renderizarCalendario() {
+        const grid = document.getElementById('calendar-grid');
+        grid.innerHTML = '';
+
+        const año = fechaActualCalendario.getFullYear();
+        const mes = fechaActualCalendario.getMonth();
+
+        const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        document.getElementById('month-label').innerText = `${meses[mes]} ${año}`;
+
+        const diasSemana = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+        diasSemana.forEach(d => {
+            const div = document.createElement('div');
+            div.className = 'day-name';
+            div.innerText = d;
+            grid.appendChild(div);
+        });
+
+        const primerDia = new Date(año, mes, 1).getDay();
+        const totalDias = new Date(año, mes + 1, 0).getDate();
+
+        for (let i = 0; i < primerDia; i++) {
+            const div = document.createElement('div');
+            div.className = 'day-cell empty';
+            grid.appendChild(div);
+        }
+
+        const hoyStr = new Date().toISOString().split('T')[0];
+
+        for (let dia = 1; dia <= totalDias; dia++) {
+            const div = document.createElement('div');
+            const mesFormat = String(mes + 1).padStart(2, '0');
+            const diaFormat = String(dia).padStart(2, '0');
+            const fechaKey = `${año}-${mesFormat}-${diaFormat}`;
+
+            div.className = 'day-cell';
+            div.innerText = dia;
+
+            if (fechaKey === hoyStr) div.classList.add('today');
+            if (calendarDays[fechaKey] === "free") div.classList.add('smoke-free');
+            if (calendarDays[fechaKey] === "smoked") div.classList.add('smoked');
+
+            div.onclick = () => window.toggleDia(fechaKey);
+            grid.appendChild(div);
+        }
+    }
+
+    function actualizarTodo() {
+        if (!lastSmokedDate) return;
+
+        const now = new Date();
+        const diffInSeconds = Math.max(0, Math.floor((now - lastSmokedDate) / 1000));
+
+        // 1. Contador Libre de Humo
+        const days = Math.floor(diffInSeconds / 86400);
+        const hours = Math.floor((diffInSeconds % 86400) / 3600);
+        const minutes = Math.floor((diffInSeconds % 3600) / 60);
+        const seconds = diffInSeconds % 60;
+
+        document.getElementById('timer').innerText = days > 0 
+            ? `${days}d ${hours}h ${minutes}m ${seconds}s` 
+            : `${hours}h ${minutes}m ${seconds}s`;
+
+        // 2. Rachas y Total de días
+        const totalDiasLibres = Object.values(calendarDays).filter(v => v === "free").length;
+        document.getElementById('total-days').innerText = `${totalDiasLibres} ${totalDiasLibres === 1 ? 'día' : 'días'}`;
+        document.getElementById('current-streak').innerText = `${totalDiasLibres} ${totalDiasLibres === 1 ? 'día' : 'días'}`;
+        document.getElementById('longest-streak').innerText = `${totalDiasLibres} ${totalDiasLibres === 1 ? 'día' : 'días'}`;
+
+        // 3. Etapas de Salud (Recovery Journey)
+        let etapaActualIndex = 0;
+        while (etapaActualIndex < etapasSalud.length && diffInSeconds >= etapasSalud[etapaActualIndex].sec) {
+            etapaActualIndex++;
+        }
+
+        document.getElementById('stage-count').innerText = `• Viaje de recuperación · ${etapaActualIndex} / 12 etapas`;
+
+        if (etapaActualIndex < etapasSalud.length) {
+            const meta = etapasSalud[etapaActualIndex];
+            document.getElementById('stage-desc').innerText = meta.desc;
+            
+            const progreso = (diffInSeconds / meta.sec) * 100;
+            const restante = Math.max(0, meta.sec - diffInSeconds);
+            
+            const rHours = String(Math.floor(restante / 3600)).padStart(2, '0');
+            const rMins = String(Math.floor((restante % 3600) / 60)).padStart(2, '0');
+            const rSecs = String(restante % 60).padStart(2, '0');
+
+            document.getElementById('progress-bar').style.width = `${Math.min(100, progreso)}%`;
+            document.getElementById('time-left').innerText = `Tiempo restante: ${rHours}:${rMins}:${rSecs}`;
+            document.getElementById('progress-percent').innerText = `${Math.min(100, progreso).toFixed(2)}%`;
+        } else {
+            document.getElementById('stage-desc').innerText = "¡Has completado todas las etapas principales de recuperación!";
+            document.getElementById('progress-bar').style.width = "100%";
+        }
+
+        // 4. Métricas Financieras y Vida
+        const hoursFree = diffInSeconds / 3600;
+        const cigsAvoided = (cigsPerDay / 24) * hoursFree;
+
+        const moneySaved = cigsAvoided * pricePerCig;
+        const lifeSavedMinutes = cigsAvoided * 11;
+        const lifeHours = Math.floor(lifeSavedMinutes / 60);
+        const lifeMins = (lifeSavedMinutes % 60).toFixed(4);
+
+        document.getElementById('money-saved').innerText = `$${moneySaved.toFixed(2)}`;
+        document.getElementById('life-saved').innerText = `${lifeHours}h ${lifeMins}m`;
+    }
+
+    setInterval(actualizarTodo, 1000);
+</script>
+
+</body>
+</html>
