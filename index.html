@@ -213,6 +213,109 @@
             width: 100%;
         }
 
+        /* --- Actividades saludables --- */
+        .activities-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 12px;
+            background: rgba(255, 255, 255, 0.035);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.2s ease, border-color 0.2s ease;
+        }
+
+        .activity-item:hover {
+            background: rgba(121, 192, 255, 0.08);
+            border-color: rgba(121, 192, 255, 0.35);
+        }
+
+        .activity-item.completed {
+            background: rgba(86, 211, 100, 0.10);
+            border-color: rgba(86, 211, 100, 0.45);
+        }
+
+        .activity-check {
+            width: 20px;
+            height: 20px;
+            accent-color: var(--accent-green);
+            flex: 0 0 auto;
+        }
+
+        .activity-copy { flex: 1; }
+        .activity-name { font-size: 14px; font-weight: 600; }
+        .activity-time { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+
+        .activity-cookie {
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(86, 211, 100, 0.14), rgba(121, 192, 255, 0.12));
+            border: 1px solid rgba(86, 211, 100, 0.35);
+            color: var(--text-main);
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .activity-cookie strong { color: var(--accent-green); }
+
+        .activity-summary {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-sub);
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .custom-activity-form {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .custom-activity-form input {
+            min-width: 0;
+            background: #0d1117;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: var(--text-main);
+            border-radius: 8px;
+            padding: 9px;
+            box-sizing: border-box;
+        }
+
+        .custom-activity-form button {
+            background: var(--accent-blue);
+            border: 0;
+            color: #0d1117;
+            border-radius: 8px;
+            padding: 9px 12px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .custom-activity-help {
+            color: var(--text-sub);
+            font-size: 11px;
+            margin-top: 6px;
+        }
+
+        .delete-activity {
+            border: 0;
+            background: transparent;
+            color: var(--red-smoked);
+            cursor: pointer;
+            font-size: 16px;
+            padding: 4px;
+        }
+
         button.reset-btn {
             background: transparent;
             border: 1px solid rgba(248, 81, 73, 0.4);
@@ -261,6 +364,22 @@
             <span id="time-left">Tiempo restante: 00:20:00</span>
             <span id="progress-percent">0.00%</span>
         </div>
+    </div>
+
+    <!-- CARD 3: ACTIVIDADES SALUDABLES -->
+    <div class="card">
+        <div class="card-header">• Hábitos de hoy</div>
+        <div class="activity-summary">
+            <span>Pequeños pasos, grandes cambios</span>
+            <b id="activity-progress">0 / 5</b>
+        </div>
+        <div class="activities-list" id="activities-list"></div>
+        <form class="custom-activity-form" id="custom-activity-form">
+            <input id="custom-activity-name" maxlength="60" placeholder="Ej.: Meditar 10 minutos" aria-label="Nueva actividad personalizada">
+            <button type="submit">Agregar</button>
+        </form>
+        <div class="custom-activity-help">Tus actividades personalizadas aparecerán todos los días.</div>
+        <div class="activity-cookie" id="activity-cookie" hidden></div>
     </div>
 
     <!-- CARD 3: CALENDARIO -->
@@ -331,7 +450,17 @@
     let lastSmokedDate = null;
     let calendarDays = {}; 
     let crisisLetterText = "";
+    let activitiesByDate = {};
+    let customActivities = [];
     let fechaActualCalendario = new Date();
+
+    const actividades = [
+        { id: "ejercicio", nombre: "Hacer ejercicio", momento: "Muévete al menos 20 minutos.", frase: "Cada movimiento es una victoria: tu cuerpo te está agradeciendo." },
+        { id: "dientes-noche", nombre: "Lavarte los dientes por la noche", momento: "Cierra el día cuidando tu sonrisa.", frase: "Hoy también elegiste cuidarte. Descansa con orgullo." },
+        { id: "lectura-mediodia", nombre: "Leer al mediodía", momento: "Regálate unos minutos de lectura consciente.", frase: "Tu mente también merece un respiro. ¡Muy bien hecho!" },
+        { id: "tomar-agua", nombre: "Tomar agua", momento: "Hidrátate durante el día.", frase: "Una elección saludable a la vez; vas construyendo tu mejor versión." },
+        { id: "fruta-manana", nombre: "Comer una fruta en la mañana", momento: "Empieza el día con energía natural.", frase: "Nutrirte es una forma poderosa de decirte: me importo." }
+    ];
 
     const etapasSalud = [
         { sec: 1200, desc: "20 min — Tu pulso y presión arterial comienzan a regresar a un rango normal." },
@@ -354,11 +483,14 @@
         if (data) {
             calendarDays = data.calendarDays || {};
             crisisLetterText = data.crisisLetter || "";
+            activitiesByDate = data.activitiesByDate || {};
+            customActivities = Array.isArray(data.customActivities) ? data.customActivities : [];
             document.getElementById('crisis-letter').value = crisisLetterText;
             document.getElementById('status').innerText = "Sincronizado";
         }
         calcularFechaInicioDesdeCalendario();
         renderizarCalendario();
+        renderizarActividades();
         actualizarTodo();
     });
 
@@ -367,7 +499,9 @@
             await set(userRef, {
                 lastSmoked: lastSmokedDate ? lastSmokedDate.toISOString() : new Date().toISOString(),
                 calendarDays: calendarDays,
-                crisisLetter: document.getElementById('crisis-letter').value
+                crisisLetter: document.getElementById('crisis-letter').value,
+                activitiesByDate: activitiesByDate,
+                customActivities: customActivities
             });
             document.getElementById('status').innerText = "Sincronizado";
         } catch (e) {
@@ -396,7 +530,7 @@
 
     window.registrarRecaida = function() {
         if (confirm("¿Estás seguro de registrar una recaída? Se marcará el día de hoy como fumado.")) {
-            const hoyStr = new Date().toISOString().split('T')[0];
+            const hoyStr = fechaLocalStr();
             calendarDays[hoyStr] = "smoked";
             calcularFechaInicioDesdeCalendario();
             guardarEnFirebase();
@@ -416,6 +550,97 @@
         calcularFechaInicioDesdeCalendario();
         guardarEnFirebase();
     };
+
+    function fechaLocalStr(fecha = new Date()) {
+        const año = fecha.getFullYear();
+        const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+        const dia = String(fecha.getDate()).padStart(2, '0');
+        return `${año}-${mes}-${dia}`;
+    }
+
+    function obtenerTodasLasActividades() {
+        return actividades.concat(customActivities.map((actividad) => ({
+            ...actividad,
+            personalizada: true
+        })));
+    }
+
+    function renderizarActividades() {
+        const lista = document.getElementById('activities-list');
+        const hoy = fechaLocalStr();
+        const completadas = activitiesByDate[hoy] || {};
+        lista.innerHTML = '';
+
+        obtenerTodasLasActividades().forEach((actividad) => {
+            const item = document.createElement('label');
+            item.className = 'activity-item' + (completadas[actividad.id] ? ' completed' : '');
+            item.htmlFor = `activity-${actividad.id}`;
+            item.innerHTML = `
+                <input class="activity-check" type="checkbox" id="activity-${actividad.id}" ${completadas[actividad.id] ? 'checked' : ''}>
+                <span class="activity-copy">
+                    <span class="activity-name">${actividad.nombre}</span>
+                    <span class="activity-time">${actividad.momento}</span>
+                </span>
+                ${actividad.personalizada ? `<button type="button" class="delete-activity" title="Eliminar actividad" aria-label="Eliminar ${actividad.nombre}">×</button>` : ''}`;
+
+            const checkbox = item.querySelector('input');
+            const deleteButton = item.querySelector('.delete-activity');
+            if (deleteButton) {
+                deleteButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (confirm(`¿Eliminar la actividad "${actividad.nombre}"?`)) {
+                        customActivities = customActivities.filter((item) => item.id !== actividad.id);
+                        Object.keys(activitiesByDate).forEach((fecha) => {
+                            if (activitiesByDate[fecha][actividad.id]) delete activitiesByDate[fecha][actividad.id];
+                        });
+                        renderizarActividades();
+                        guardarEnFirebase();
+                    }
+                });
+            }
+            checkbox.addEventListener('change', () => {
+                if (!activitiesByDate[hoy]) activitiesByDate[hoy] = {};
+                activitiesByDate[hoy][actividad.id] = checkbox.checked;
+                if (!checkbox.checked) delete activitiesByDate[hoy][actividad.id];
+                if (Object.keys(activitiesByDate[hoy]).length === 0) delete activitiesByDate[hoy];
+                renderizarActividades();
+                guardarEnFirebase();
+                if (checkbox.checked) mostrarGalleta(actividad);
+            });
+            lista.appendChild(item);
+        });
+
+        const todas = obtenerTodasLasActividades();
+        const totalCompletadas = todas.filter((actividad) => completadas[actividad.id]).length;
+        document.getElementById('activity-progress').innerText = `${totalCompletadas} / ${todas.length}`;
+        if (todas.length > 0 && totalCompletadas === todas.length) {
+            mostrarGalleta({ nombre: 'Todas tus actividades', frase: '¡Día completo! Cada hábito saludable te acerca a una vida libre de humo.' });
+        }
+    }
+
+    document.getElementById('custom-activity-form').addEventListener('submit', (event) => {
+        event.preventDefault();
+        const input = document.getElementById('custom-activity-name');
+        const nombre = input.value.trim();
+        if (!nombre) return;
+        customActivities.push({
+            id: `custom-${Date.now()}`,
+            nombre,
+            momento: 'Actividad personalizada',
+            frase: '¡Cada decisión saludable cuenta y te hace más fuerte!'
+        });
+        input.value = '';
+        renderizarActividades();
+        guardarEnFirebase();
+        mostrarGalleta({ nombre, frase: '¡Tu nuevo hábito ya forma parte de tu camino saludable!' });
+    });
+
+    function mostrarGalleta(actividad) {
+        const cookie = document.getElementById('activity-cookie');
+        cookie.hidden = false;
+        cookie.innerHTML = `<strong>¡Excelente!</strong> ${actividad.nombre}: ${actividad.frase}`;
+    }
 
     // --- RENDERIZADO ---
     function renderizarCalendario() {
