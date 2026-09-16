@@ -307,6 +307,30 @@
             margin-top: 6px;
         }
 
+        .habit-day-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .habit-day-nav button {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            color: var(--text-main);
+            border-radius: 7px;
+            cursor: pointer;
+            padding: 5px 9px;
+        }
+
+        #habit-date-label {
+            color: var(--accent-blue);
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+        }
+
         .delete-activity {
             border: 0;
             background: transparent;
@@ -314,6 +338,17 @@
             cursor: pointer;
             font-size: 16px;
             padding: 4px;
+        }
+
+        .support-message {
+            margin-top: 10px;
+            padding: 12px;
+            border-radius: 10px;
+            background: rgba(86, 211, 100, 0.10);
+            border: 1px solid rgba(86, 211, 100, 0.35);
+            color: var(--text-main);
+            font-size: 13px;
+            line-height: 1.45;
         }
 
         button.reset-btn {
@@ -373,6 +408,11 @@
             <span>Pequeños pasos, grandes cambios</span>
             <b id="activity-progress">0 / 5</b>
         </div>
+        <div class="habit-day-nav">
+            <button type="button" id="habit-prev-day" aria-label="Día anterior">&lt;</button>
+            <span id="habit-date-label"></span>
+            <button type="button" id="habit-next-day" aria-label="Día siguiente">&gt;</button>
+        </div>
         <div class="activities-list" id="activities-list"></div>
         <form class="custom-activity-form" id="custom-activity-form">
             <input id="custom-activity-name" maxlength="60" placeholder="Ej.: Meditar 10 minutos" aria-label="Nueva actividad personalizada">
@@ -418,6 +458,8 @@
         
         <textarea id="crisis-letter" rows="3" placeholder="Escribe aquí tu carta a tu 'yo en crisis'..."></textarea>
         <button class="action-btn" onclick="guardarCarta()">Guardar carta de apoyo</button>
+        <button class="action-btn" onclick="mostrarMensajeNoFumar()">Necesito apoyo para no fumar</button>
+        <div id="support-message" class="support-message" hidden></div>
         
         <button class="reset-btn" onclick="registrarRecaida()">Fumé / Registrar recaída</button>
     </div>
@@ -452,6 +494,7 @@
     let crisisLetterText = "";
     let activitiesByDate = {};
     let customActivities = [];
+    let fechaHabitos = new Date();
     let fechaActualCalendario = new Date();
 
     const actividades = [
@@ -460,6 +503,26 @@
         { id: "lectura-mediodia", nombre: "Leer al mediodía", momento: "Regálate unos minutos de lectura consciente.", frase: "Tu mente también merece un respiro. ¡Muy bien hecho!" },
         { id: "tomar-agua", nombre: "Tomar agua", momento: "Hidrátate durante el día.", frase: "Una elección saludable a la vez; vas construyendo tu mejor versión." },
         { id: "fruta-manana", nombre: "Comer una fruta en la mañana", momento: "Empieza el día con energía natural.", frase: "Nutrirte es una forma poderosa de decirte: me importo." }
+    ];
+
+    const felicitacionesDiarias = [
+        "¡Excelente trabajo! Hoy estás demostrando que sí puedes elegirte a ti.",
+        "¡Qué orgullo! Cada hábito cumplido fortalece tu salud y tu confianza.",
+        "Hoy avanzaste un paso más. Tu futuro yo te lo va a agradecer.",
+        "¡Lo estás haciendo muy bien! La constancia transforma pequeños esfuerzos en grandes cambios.",
+        "Tu decisión de cuidarte vale mucho. ¡Sigue así, vas por buen camino!",
+        "¡Día ganado! Estás construyendo una versión más fuerte y saludable de ti.",
+        "Mereces reconocerte: hoy volviste a escoger bienestar y libertad."
+    ];
+
+    const mensajesNoFumar = [
+        "El deseo de fumar pasa; tu decisión de cuidarte permanece.",
+        "Espera cinco minutos, respira profundo y toma agua. Esta urgencia también va a pasar.",
+        "No necesitas un cigarrillo: necesitas apoyo, paciencia y recordar por qué empezaste.",
+        "Cada vez que dices no, recuperas control, salud y confianza en ti.",
+        "Tu cuerpo ya está reparándose. Dale otra oportunidad para seguir mejorando.",
+        "Mira tu progreso: has llegado hasta aquí porque eres más fuerte que este impulso.",
+        "Cambia de espacio, camina un momento y vuelve a leer tu carta. Puedes superar estos minutos."
     ];
 
     const etapasSalud = [
@@ -558,6 +621,30 @@
         return `${año}-${mes}-${dia}`;
     }
 
+    function desplazarDiaHabitos(delta) {
+        fechaHabitos.setDate(fechaHabitos.getDate() + delta);
+        renderizarActividades();
+    }
+
+    document.getElementById('habit-prev-day').addEventListener('click', () => desplazarDiaHabitos(-1));
+    document.getElementById('habit-next-day').addEventListener('click', () => desplazarDiaHabitos(1));
+
+    function indiceDelDia(fecha) {
+        return Math.abs(fecha.split('-').join('').split('').reduce((total, digito) => total + Number(digito), 0)) % felicitacionesDiarias.length;
+    }
+
+    function fraseFelicitacionDelDia(actividad, fecha) {
+        return `${felicitacionesDiarias[indiceDelDia(fecha)]} ${actividad.frase}`;
+    }
+
+    window.mostrarMensajeNoFumar = function() {
+        const hoy = fechaLocalStr();
+        const mensaje = mensajesNoFumar[indiceDelDia(hoy)];
+        const caja = document.getElementById('support-message');
+        caja.hidden = false;
+        caja.innerHTML = `<strong>Respira y espera:</strong> ${mensaje}`;
+    };
+
     function obtenerTodasLasActividades() {
         return actividades.concat(customActivities.map((actividad) => ({
             ...actividad,
@@ -567,9 +654,12 @@
 
     function renderizarActividades() {
         const lista = document.getElementById('activities-list');
-        const hoy = fechaLocalStr();
+        const hoy = fechaLocalStr(fechaHabitos);
         const completadas = activitiesByDate[hoy] || {};
         lista.innerHTML = '';
+        document.getElementById('habit-date-label').innerText = fechaHabitos.toLocaleDateString('es-MX', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+        });
 
         obtenerTodasLasActividades().forEach((actividad) => {
             const item = document.createElement('label');
@@ -606,7 +696,7 @@
                 if (Object.keys(activitiesByDate[hoy]).length === 0) delete activitiesByDate[hoy];
                 renderizarActividades();
                 guardarEnFirebase();
-                if (checkbox.checked) mostrarGalleta(actividad);
+                if (checkbox.checked) mostrarGalleta({ ...actividad, frase: fraseFelicitacionDelDia(actividad, hoy) });
             });
             lista.appendChild(item);
         });
@@ -615,7 +705,7 @@
         const totalCompletadas = todas.filter((actividad) => completadas[actividad.id]).length;
         document.getElementById('activity-progress').innerText = `${totalCompletadas} / ${todas.length}`;
         if (todas.length > 0 && totalCompletadas === todas.length) {
-            mostrarGalleta({ nombre: 'Todas tus actividades', frase: '¡Día completo! Cada hábito saludable te acerca a una vida libre de humo.' });
+            mostrarGalleta({ nombre: 'Todas tus actividades', frase: `${felicitacionesDiarias[indiceDelDia(hoy)]} Cada hábito saludable te acerca a una vida libre de humo.` });
         }
     }
 
@@ -757,3 +847,4 @@
 
 </body>
 </html>
+
